@@ -1,28 +1,26 @@
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 class APIKeyAuthentication(BaseAuthentication):
     def authenticate(self, request):
-        auth_header = request.META.get('HTTP_AUTHORIZATION')
+        # CORREÇÃO: LÊ O HEADER X-API-KEY
+        api_key = request.headers.get("X-API-KEY")
+        
+        if not api_key:
+            return None # Retorna None se o cabeçalho não existir.
 
-        if not auth_header:
-            return None # Retorna None se não houver cabeçalho, permitindo outras classes de autenticação serem testadas
+        allowed_api_key = getattr(settings, 'CRM_TO_TEMPLATES_API_KEY', None)
 
-        try:
-            token_type, api_key = auth_header.split(' ', 1)
-        except ValueError:
-            raise AuthenticationFailed('Invalid Authorization header format. Use "Token <your-key>"')
+        if not allowed_api_key:
+            logger.error("CRM_TO_TEMPLATES_API_KEY não configurada no settings.py.")
+            raise AuthenticationFailed("Erro de configuração da API.")
+        
+        if api_key != allowed_api_key:
+            raise AuthenticationFailed("Chave de API inválida.")
 
-        if token_type.lower() != 'token':
-            raise AuthenticationFailed('Unsupported authentication type. Use "Token"')
-
-        if api_key != settings.CRM_TO_TEMPLATE_API_KEY:
-            raise AuthenticationFailed('Invalid API Key')
-
-        # Se a chave for válida, autentica um usuário.
-        # Aqui, você pode retornar um usuário, ou None.
-        # Para um sistema com API Key, muitas vezes você não tem um "usuário"
-        # real associado. Retornar um tuple (None, None) indica sucesso na autenticação,
-        # mas sem um objeto de usuário.
+        # Se a chave for válida, a autenticação é um sucesso.
         return (None, None)

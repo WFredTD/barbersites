@@ -6,11 +6,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BarberSites - Checkout</title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
-    
+
     <!-- Stripe.js -->
     <script src="https://js.stripe.com/v3/"></script>
 
@@ -92,11 +92,13 @@
                                     <div class="text-danger small">{{ usuario_form.telefone.errors }}</div>
                                 {% endif %}
                             </div>
-                            
+
                             <hr class="my-4">
 
                             <!-- Dados da Barbearia -->
                             <h5 class="card-title fw-bold mb-3">Dados da Barbearia</h5>
+
+
                             <div class="mb-3">
                                 {{ barbearia_form.nome_barbearia.label_tag }}
                                 {{ barbearia_form.nome_barbearia }}
@@ -137,7 +139,7 @@
                                     <div class="text-danger small">{{ barbearia_form.cep.errors }}</div>
                                 {% endif %}
                             </div>
-                            
+
                             <!-- Error Messages -->
                             {% if usuario_form.non_field_errors %}
                                 <div class="text-danger small">{{ usuario_form.non_field_errors }}</div>
@@ -158,7 +160,7 @@
                                     <div class="text-danger small">{{ usuario_form.aceite_termos.errors }}</div>
                                 {% endif %}
                             </div>
-                            
+
                             <div class="form-check mb-4">
                                 {{ usuario_form.receber_notificacoes }}
                                 <label class="form-check-label" for="{{ usuario_form.receber_notificacoes.id_for_label }}">
@@ -174,7 +176,7 @@
                                 <button type="submit" id="pay-button" class="btn btn-warning rounded-pill btn-lg fw-bold">
                                     Pagar R${{ plano.valor|floatformat:2 }}
                                 </button>
-                            
+
                                 <p class="mt-3 text-center">
                                     <a href="/" class="btn btn-secondary rounded-pill w-50">Voltar para a página inicial</a>
                                 </p>
@@ -278,7 +280,7 @@
             function validateForm() {
                 const requiredFields = [
                     'id_nome_completo',
-                    'id_email', 
+                    'id_email',
                     'id_telefone',
                     'id_nome_barbearia',
                     'id_endereco',
@@ -356,7 +358,7 @@
                     if (data.error) {
                         throw new Error(data.error);
                     }
-                    
+
                     if (data.id) {
                         // Redirecionar para Stripe Checkout
                         return stripe.redirectToCheckout({ sessionId: data.id });
@@ -389,300 +391,3 @@
 </body>
 
 </html>
-
-
-
-
-
-<!-- {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BarberSites - Finalize sua Compra</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
-    
-    <script src="https://js.stripe.com/v3/"></script>
-    <style>
-        .pt-header-offset {
-            padding-top: 80px; /* Para compensar a barra de navegação fixa */
-        }
-    </style>
-</head>
-
-<body class="bg-dark text-white" style="padding-top: 80px;" data-plano-id="{{ plano.pk }}">
-    <div class="container-fluid bg-dark py-3 border-bottom border-secondary fixed-top">
-        <div class="container d-flex justify-content-start align-items-center">
-            <h4 class="text-white mb-0">BarberSites</h4>
-        </div>
-    </div>
-
-    <div class="container-fluid bg-dark py-5 pt-header-offset">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h1 class="display-5 fw-bold text-white">
-                    <span class="text-warning">Finalize sua Compra</span> e Transforme sua Barbearia
-                </h1>
-                <p class="fs-5 text-secondary">Preencha seus dados para ter acesso aos nossos templates premium.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="container mt-4 mb-5"> {# Adicionado container principal para o conteúdo #}
-        <div class="row justify-content-center">
-            <div class="col-lg-8"> {# Ajustado para ocupar mais espaço #}
-                <div class="row">
-                    <div class="col-lg-7 mb-4"> {# Coluna para formulários #}
-                        <div class="card p-4 shadow-lg" style="background-color: #F8F4E3; border-radius: 15px;">
-                            <div class="card-body text-dark">
-                                <h5 class="card-title fw-bold mb-4">Informações de Cadastro e Barbearia</h5>
-                                <p class="card-text text-secondary mb-4">Preencha seus dados para finalizar a compra</p>
-
-                                <form id="checkout-form"> {# Adicionado ID para o formulário #}
-                                    {% csrf_token %} {# MUITO IMPORTANTE para proteção CSRF #}
-
-                                    <div class="mb-3">
-                                        <label for="nomeCompleto" class="form-label">Nome Completo <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="nomeCompleto" name="nomeCompleto" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                                        <input type="email" class="form-control" id="email" name="email" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="telefone" class="form-label">Telefone <span class="text-danger">*</span></label>
-                                        <input type="tel" class="form-control" id="telefone" name="telefone" placeholder="(XX) XXXXX-XXXX" required>
-                                    </div>
-
-                                    <hr class="my-4">
-
-                                    <h5 class="card-title fw-bold mb-4">Dados da Barbearia</h5>
-                                    <div class="mb-3">
-                                        <label for="nomeBarbearia" class="form-label">Nome da Barbearia <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="nomeBarbearia" name="nomeBarbearia" placeholder="Nome da sua barbearia" required>
-                                    </div>
-
-                                    <h5 class="card-title fw-bold mb-4 mt-5">Endereço da Barbearia</h5>
-                                    <div class="mb-3">
-                                        <label for="endereco" class="form-label">Endereço Completo <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="endereco" name="endereco" placeholder="Rua, número, complemento" required>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label for="cidade" class="form-label">Cidade <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control" id="cidade" name="cidade" required>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
-                                            <select class="form-select" id="estado" name="estado" required>
-                                                <option value="" selected disabled>Selecione</option>
-                                                <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="mb-4">
-                                        <label for="cep" class="form-label">CEP <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="cep" name="cep" placeholder="00000-000" required>
-                                    </div>
-
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="checkbox" id="termosUso" name="aceiteTermos" required>
-                                        <label class="form-check-label text-secondary" for="termosUso">
-                                            Aceito os <a href="#" class="text-decoration-none text-dark fw-bold">Termos de Uso</a> e <a href="#" class="text-decoration-none text-dark fw-bold">Política de Privacidade</a>.
-                                        </label>
-                                    </div>
-                                    <div class="form-check mb-4">
-                                        <input class="form-check-input" type="checkbox" id="notificacoes" name="receberNotificacoes">
-                                        <label class="form-check-label text-secondary" for="notificacoes">
-                                            Autorizo o envio de e-mails com novidades, promoções e conteúdos exclusivos
-                                            sobre templates e marketing para barbearias.
-                                        </label>
-                                    </div>
-
-                                    <div class="d-grid mt-5">
-                                        <button type="submit" id="pay-button" class="btn btn-warning btn-lg fw-bold">Pagar R${{ plano.valor|floatformat:2 }}</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-lg-5 mb-4"> {# Coluna para resumo do plano #}
-                        <div class="sticky-top" style="top: 100px;"> {# Ajustado top para evitar navbar #}
-                            <div class="card p-4 shadow-lg" style="background-color: #F8F4E3; border-radius: 15px;">
-                                <div class="card-body text-dark">
-                                    <h5 class="card-title fw-bold mb-4">Seu Plano Selecionado</h5>
-                                    <div class="card mb-4">
-                                        <div class="card-header">
-                                            Detalhes do Plano
-                                        </div>
-                                        <div class="card-body">
-                                            <h5 class="card-title">Plano: {{ plano.nome_plano }}</h5>
-                                            <p class="card-text">
-                                                Valor: R$ {{ plano.valor|floatformat:2 }} BRL / {{ plano.get_interval_display|lower }} <br>
-                                                O que ele oferece: {{ plano.descricao|default:"Sem descrição." }}
-                                            </p>
-                                            {% if plano.trial_period_days > 0 %}
-                                                <p class="text-success fw-bold">Primeiros {{ plano.trial_period_days }} dias grátis!</p>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card p-4 shadow-lg mt-4" style="background-color: #2b2b2b; border-radius: 15px;">
-                                <div class="card-body text-white">
-                                    <h5 class="card-title fw-bold mb-3">Precisa de Ajuda?</h5>
-                                    <p class="card-text text-secondary mb-3">Fale conosco via WhatsApp</p>
-                                    <a href="https://wa.me/seu_numero" target="_blank" class="btn btn-success w-100 fw-bold">
-                                        <i class="fab fa-whatsapp me-2"></i> Fale Conosco
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <footer class="bg-dark text-center text-lg-start mt-5 py-3 border-top border-secondary">
-        <div class="container d-flex justify-content-center justify-content-lg-between align-items-center flex-wrap">
-            <div class="text-center text-lg-start mb-2 mb-lg-0">
-                <span>© 2025 Barbersites. Todos os direitos reservados.</span>
-            </div>
-            <div class="d-flex justify-content-center">
-                <a href="https://www.facebook.com/" class="mx-2" target="_blank" aria-label="Facebook">
-                    <img src="{% static '/assets/facebook.png' %}" alt="Facebook Logo" style="width: 30px; height: 30px;">
-                </a>
-                <a href="https://www.instagram.com/" class="mx-2" target="_blank" aria-label="Instagram">
-                    <img src="{% static '/assets/instagram.png' %}" alt="Instagram Logo" style="width: 30px; height: 30px;">
-                </a>
-                <a href="https://twitter.com/" class="mx-2" target="_blank" aria-label="Twitter">
-                    <img src="{% static '/assets/x.png' %}" alt="Twitter Logo" style="width: 30px; height: 30px;">
-                </a>
-                <a href="https://wa.me/SEUNUMERO" class="mx-2" target="_blank" aria-label="WhatsApp">
-                    <img src="{% static '/assets/whatsapp.png' %}" alt="WhatsApp Logo" style="width: 30px; height: 30px;">
-                </a>
-            </div>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
-        crossorigin="anonymous"></script>
-
-    <script type="text/javascript">
-        // Sua chave pública do Stripe
-        var stripe = Stripe('{{ STRIPE_PUBLIC_KEY }}');
-        var payButton = document.getElementById('pay-button');
-        var checkoutForm = document.getElementById('checkout-form');
-
-        checkoutForm.addEventListener('submit', function(event) {
-            event.preventDefault(); // Impede o envio padrão do formulário
-
-            // Coleta os dados do formulário
-            const nomeCompleto = document.getElementById('nomeCompleto').value;
-            const email = document.getElementById('email').value;
-            const telefone = document.getElementById('telefone').value;
-            const nomeBarbearia = document.getElementById('nomeBarbearia').value;
-            const endereco = document.getElementById('endereco').value;
-            const cidade = document.getElementById('cidade').value;
-            const estado = document.getElementById('estado').value;
-            const cep = document.getElementById('cep').value;
-            const aceiteTermos = document.getElementById('termosUso').checked;
-            const receberNotificacoes = document.getElementById('notificacoes').checked;
-
-            // Validação simples (pode ser mais robusta)
-            if (!nomeCompleto || !email || !telefone || !nomeBarbearia || !endereco || !cidade || !estado || !cep || !aceiteTermos) {
-                alert('Por favor, preencha todos os campos obrigatórios e aceite os termos de uso.');
-                return;
-            }
-
-            // ID do plano selecionado, passado do contexto do Django
-            const planoId = document.body.dataset.planoId; // Lê o ID do plano do atributo data-plano-id do body
-            // Se precisar que seja um número (não string), pode converter:
-            // const planoId = parseInt(document.body.dataset.planoId);
-
-            // Desabilita o botão para evitar múltiplos cliques
-            payButton.disabled = true;
-            payButton.textContent = 'Processando...';
-
-            fetch(`/payments/create-checkout-session/${planoId}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({
-                    usuario_data: {
-                        nome_completo: nomeCompleto,
-                        email: email,
-                        telefone: telefone,
-                        aceite_termos: aceiteTermos,
-                        receber_notificacoes: receberNotificacoes
-                    },
-                    barbearia_data: {
-                        nome_barbearia: nomeBarbearia,
-                        endereco: endereco,
-                        cidade: cidade,
-                        estado: estado,
-                        cep: cep
-                    }
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw new Error(err.error || 'Erro desconhecido ao criar sessão.'); });
-                }
-                return response.json();
-            })
-            .then(session => {
-                if (session.error) {
-                    alert(session.error);
-                } else {
-                    return stripe.redirectToCheckout({ sessionId: session.id });
-                }
-            })
-            .then(result => {
-                if (result.error) {
-                    alert(result.error.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ocorreu um erro ao iniciar o checkout: ' + error.message);
-            })
-            .finally(() => {
-                payButton.disabled = false;
-                payButton.textContent = 'Pagar R$ {{ plano.valor|floatformat:2 }}';
-            });
-        });
-
-        // Função para obter o CSRF token do cookie
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
-        crossorigin="anonymous"></script>
-</body>
-
-</html> -->

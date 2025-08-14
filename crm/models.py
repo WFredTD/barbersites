@@ -4,11 +4,15 @@ import requests
 from datetime import timedelta
 from django.utils import timezone # Importa timezone para trabalhar com datas e fusos horários.
 from django.contrib.auth.models import User, Group # Importa o modelo User e Group do sistema de autenticação do Django.
-from .utils import generate_random_password, provisionar_instancia # senha_chumbada # Importa a função de gerar senha aleatória que criamos em crm/utils.py.
+# from .utils import generate_random_password, provisionar_instancia # senha_chumbada # Importa a função de gerar senha aleatória que criamos em crm/utils.py.
+from .utils import generate_random_password, provisionar_admin_em_instancia_mock
 from django.core.mail import send_mail # Importa send_mail para enviar e-mails.
 from django.conf import settings # Importa settings para acessar DEFAULT_FROM_EMAIL.
 from django.core.exceptions import ObjectDoesNotExist # Importa ObjectDoesNotExist para tratar caso o OneToOneField 'user' não exista.
 from django.template.loader import render_to_string # NOVO: Importa para renderizar templates de email.
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
 
 
 class Plano(models.Model):
@@ -357,7 +361,7 @@ class Assinatura(models.Model):
     # Se True, o acesso continua até data_expiracao, depois é revogado.
     # Se False, o acesso é revogado imediatamente (se o status permitir).
     cancel_at_period_end = models.BooleanField(
-        default=False, 
+        default=False,
         verbose_name="Cancelar no final do período",
         help_text="Se True, o acesso será revogado apenas ao final do período pago."
     )
@@ -434,7 +438,7 @@ class Assinatura(models.Model):
         # Em 'customer.subscription.deleted', Stripe já informa se é cancelamento imediato ou no final do período.
         # Mas como este método é chamado de vários lugares, vamos fazer um dispatcher.
         print(f"Chamando registrar_cancelamento para assinatura {self.id}. Status Stripe: {self.status_assinatura}, CancelAtPeriodEnd: {self.cancel_at_period_end}")
-        
+
         # A lógica de decidir IMEDIATO vs. FIM DO PERÍODO virá do webhook ou do cancelamento manual.
         # Então, o webhook chamará o método mais específico abaixo.
         # Por isso, este método 'registrar_cancelamento' se torna um ponto de entrada.
@@ -479,96 +483,171 @@ class Assinatura(models.Model):
     #         self.usuario.user.groups.remove(Group.objects.get(name='Clientes Assinantes'))
     #         self.usuario.user.save()
 
+    # versão beta
+    # def conceder_acesso(self):
+    #     """
+    #     Lógica para automatizar a concessão de acesso ao sistema para o cliente.
+    #     Este método faz duas chamadas de API: uma para o orquestrador de templates
+    #     e outra para a nova instância do cliente.
+    #     """
+    #     print(f"Chamando conceder_acesso para {self.usuario.nome_completo} ({self.usuario.email})")
 
+    #     # Passo 1: Provisionar a nova instância se ela ainda não existir
+    #     if not self.barbearia.instance_url:
+    #         print("INFO: URL da instância não encontrada. Iniciando o provisionamento...")
+
+    #         nova_instancia_url = provisionar_instancia(
+    #             barbearia_id=self.barbearia.pk,
+    #             barbearia_nome=self.barbearia.nome_barbearia,
+    #             usuario_email=self.usuario.email,
+    #             stripe_subscription_id=self.stripe_subscription_id,
+    #         )
+
+    #         if not nova_instancia_url:
+    #             print("ERRO CRÍTICO: Falha ao provisionar a instância. Abortando concessão de acesso.")
+    #             return
+
+    #         self.barbearia.instance_url = nova_instancia_url
+    #         self.barbearia.save()
+    #         print(f"DEBUG: URL da instância salva: {self.barbearia.instance_url}")
+
+    #     # Passo 2: Enviar as credenciais e o e-mail para a nova instância
+    #     instance_url = self.barbearia.instance_url
+    #     generated_password = generate_random_password()
+
+    #     # Prepara o payload para a chamada de API na nova instância
+    #     provision_api_url = f"{instance_url}external/admin-users/"
+    #     api_payload = {
+    #         'username': self.usuario.email.split('@')[0], # Eles esperam um username
+    #         'email': self.usuario.email,
+    #         'password': generated_password,
+    #         'stripe_subscription_id': self.stripe_subscription_id,
+    #         # O campo 'barbearia_nome' foi removido, pois não está no payload deles
+    #     }
+    #     # api_payload = {
+    #     #     'email': self.usuario.email,
+    #     #     'password': generated_password,
+    #     #     'nome_completo': self.usuario.nome_completo,
+    #     #     'stripe_customer_id': self.usuario.stripe_customer_id,
+    #     #     'stripe_subscription_id': self.stripe_subscription_id,
+    #     #     'barbearia_nome': self.barbearia.nome_barbearia,
+    #     # }
+
+    #     # Prepara os headers com a chave de autenticação
+    #     template_api_key = getattr(settings, 'CRM_TO_TEMPLATE_API_KEY', None)
+    #     if not template_api_key:
+    #         print("ERRO CRÍTICO: CRM_TO_TEMPLATE_API_KEY não configurada no settings.py do CRM.")
+    #         return
+
+    #     api_headers = {
+    #         'X-API-KEY': template_api_key, # Eles esperam este header
+    #         'Content-Type': 'application/json',
+    #     }
+
+    #     try:
+    #         response = requests.post(provision_api_url, headers=api_headers, data=json.dumps(api_payload))
+    #         response.raise_for_status()
+    #         print(f"DEBUG: Chamada de API para provisionar usuário na instância {instance_url} bem-sucedida.")
+    #     except requests.exceptions.RequestException as e:
+    #         print(f"ERRO: Falha na chamada de API para provisionar usuário em {instance_url}: {e}")
+    #         # Se a chamada falhar, você pode adicionar uma lógica de recuperação ou notificação aqui.
+
+    #     # Enviar E-mail com as Credenciais (para o Cliente)
+    #     login_url = f"{instance_url}/admin/"
+    #     email_subject = "Suas Credenciais de Acesso ao BarberSites!"
+    #     email_context = {
+    #         'usuario_nome_completo': self.usuario.nome_completo,
+    #         'usuario_email': self.usuario.email,
+    #         'usuario_senha': generated_password,
+    #         'login_url': login_url,
+    #     }
+    #     email_html_message = render_to_string('crm/emails/user_credentials.html', email_context)
+
+    #     try:
+    #         send_mail(
+    #             subject=email_subject,
+    #             message="",
+    #             html_message=email_html_message,
+    #             from_email=settings.DEFAULT_FROM_EMAIL,
+    #             recipient_list=[self.usuario.email],
+    #             fail_silently=False,
+    #         )
+    #         print(f"DEBUG: E-mail de credenciais enviado para {self.usuario.email}.")
+    #     except Exception as e:
+    #         print(f"ERRO: Falha ao enviar e-mail de credenciais para {self.usuario.email}: {e}")
+    #         # Adicione lógica de notificação ou tentativa de reenvio aqui, se necessário.
+
+    #     print("DEBUG: Método conceder_acesso versão alpha.")
     def conceder_acesso(self):
-        """
-        Lógica para automatizar a concessão de acesso ao sistema para o cliente.
-        Este método faz duas chamadas de API: uma para o orquestrador de templates
-        e outra para a nova instância do cliente.
-        """
-        print(f"Chamando conceder_acesso para {self.usuario.nome_completo} ({self.usuario.email})")
+        print(f"DEBUG: Método 'conceder_acesso' chamado para {self.usuario.email}")
 
-        # Passo 1: Provisionar a nova instância se ela ainda não existir
-        if not self.barbearia.instance_url:
-            print("INFO: URL da instância não encontrada. Iniciando o provisionamento...")
-            
-            nova_instancia_url = provisionar_instancia(
-                barbearia_id=self.barbearia.pk,
-                barbearia_nome=self.barbearia.nome_barbearia,
-                usuario_email=self.usuario.email,
-                stripe_subscription_id=self.stripe_subscription_id,
-            )
-            
-            if not nova_instancia_url:
-                print("ERRO CRÍTICO: Falha ao provisionar a instância. Abortando concessão de acesso.")
-                return
-                
-            self.barbearia.instance_url = nova_instancia_url
-            self.barbearia.save()
-            print(f"DEBUG: URL da instância salva: {self.barbearia.instance_url}")
-        
-        # Passo 2: Enviar as credenciais e o e-mail para a nova instância
-        instance_url = self.barbearia.instance_url
-        generated_password = generate_random_password()
-        
-        # Prepara o payload para a chamada de API na nova instância
-        provision_api_url = f"{instance_url}/api/v1/provision_user/"
-        api_payload = {
-            'email': self.usuario.email,
-            'password': generated_password,
-            'nome_completo': self.usuario.nome_completo,
-            'stripe_customer_id': self.usuario.stripe_customer_id,
-            'stripe_subscription_id': self.stripe_subscription_id,
-            'barbearia_nome': self.barbearia.nome_barbearia,
-        }
-        
-        # Prepara os headers com a chave de autenticação
-        crm_to_template_api_key = getattr(settings, 'CRM_TO_TEMPLATE_API_KEY', None)
-        if not crm_to_template_api_key:
-            print("ERRO CRÍTICO: CRM_TO_TEMPLATE_API_KEY não configurada.")
+        instancia_url = self.barbearia.instance_url
+        if not instancia_url:
+            print("ERRO CRÍTICO: URL da instância não encontrada.")
             return
-            
+
+        generated_password = generate_random_password()
+
+        # Lógica para o username: nome da barbearia sem espaços
+        username = self.barbearia.nome_barbearia.replace(" ", "").lower()
+
+        email = self.usuario.email
+        stripe_subscription_id = self.stripe_subscription_id
+
+        # Loga as credenciais e a URL de login para a apresentação
+        login_url = f"{instancia_url}/admin/login"
+        print(f"DEBUG: Credenciais geradas - Username: {username}, Senha: {generated_password}")
+        print(f"DEBUG: URL de Login: {login_url}")
+
+        # Lógica para chamar a API real no sistema de templates
+        provision_api_url = f"{instancia_url}external/admin-users/"
+        api_payload = {
+            'username': username,
+            'email': email,
+            'password': generated_password,
+            'stripe_subscription_id': stripe_subscription_id,
+        }
         api_headers = {
-            'Authorization': f'Token {crm_to_template_api_key}',
+            'X-API-KEY': settings.CRM_TO_TEMPLATE_API_KEY,
             'Content-Type': 'application/json',
         }
-
+        provisionamento_sucesso = False
         try:
-            response = requests.post(provision_api_url, headers=api_headers, data=json.dumps(api_payload))
+            response = requests.post(provision_api_url, headers=api_headers, json=api_payload)
             response.raise_for_status()
-            print(f"DEBUG: Chamada de API para provisionar usuário na instância {instance_url} bem-sucedida.")
+            print(f"DEBUG: Chamada de API para provisionar usuário na instância {instancia_url} bem-sucedida.")
+            provisionamento_sucesso = True
         except requests.exceptions.RequestException as e:
-            print(f"ERRO: Falha na chamada de API para provisionar usuário em {instance_url}: {e}")
-            # Se a chamada falhar, você pode adicionar uma lógica de recuperação ou notificação aqui.
-            
-        # Enviar E-mail com as Credenciais (para o Cliente)
-        login_url = f"{instance_url}/admin/"
-        email_subject = "Suas Credenciais de Acesso ao BarberSites!"
-        email_context = {
-            'usuario_nome_completo': self.usuario.nome_completo,
-            'usuario_email': self.usuario.email,
-            'usuario_senha': generated_password,
-            'login_url': login_url,
-        }
-        email_html_message = render_to_string('crm/emails/user_credentials.html', email_context)
-        
-        try:
-            send_mail(
-                subject=email_subject,
-                message="",
-                html_message=email_html_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[self.usuario.email],
-                fail_silently=False,
-            )
-            print(f"DEBUG: E-mail de credenciais enviado para {self.usuario.email}.")
-        except Exception as e:
-            print(f"ERRO: Falha ao enviar e-mail de credenciais para {self.usuario.email}: {e}")
-            # Adicione lógica de notificação ou tentativa de reenvio aqui, se necessário.
-        
+            print(f"ERRO: Falha na chamada de API para provisionar usuário em {instancia_url}: {e}")
+            print(f"ERRO: Resposta da API (se disponível): {e.response.text if hasattr(e.response, 'text') else 'N/A'}")
+            provisionamento_sucesso = False
+
+        if provisionamento_sucesso:
+            email_subject = "Suas Credenciais de Acesso ao BarberSites!"
+            email_context = {
+                'usuario_nome_completo': self.usuario.nome_completo,
+                'usuario_email': self.usuario.email,
+                'usuario_senha': generated_password,
+                'login_url': login_url,
+                'usuario_username': username,
+            }
+            email_html_message = render_to_string('crm/emails/user_credentials.html', email_context)
+            try:
+                sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+                message = Mail(
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to_emails=self.usuario.email,
+                    subject=email_subject,
+                    html_content=email_html_message
+                )
+                response = sg.send(message)
+                print(f"DEBUG: E-mail enviado via API. Status: {response.status_code}")
+            except Exception as e:
+                print(f"ERRO CRÍTICO ao enviar e-mail via API: {e}")
+        else:
+            print("ERRO: O provisionamento na instância falhou. E-mail de credenciais não enviado.")
+
         print("DEBUG: Método conceder_acesso concluído.")
-
-
     def cancelar_assinatura_via_api(self, cancel_at_period_end_flag=False):
         """
         Método para processar um cancelamento iniciado pela API.

@@ -18,17 +18,17 @@ class BarbeariaForm(forms.ModelForm):
         # Define quais campos do modelo 'Barbearia' o formulário irá incluir.
         # Incluímos apenas os campos que o usuário preenche na página de checkout.
         fields = ['nome_barbearia', 'endereco', 'cidade', 'estado', 'cep']
-        
+
         # 'widgets' são usados para personalizar a renderização HTML dos campos do formulário.
         # Aqui, estamos adicionando classes CSS do Bootstrap ('form-control', 'form-select')
         # e placeholders para melhor UX.
         widgets = {
-            'nome_barbearia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome da sua barbearia'}),
-            'endereco': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Rua, número, complemento'}),
-            'cidade': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Sua cidade'}),
+            'nome_barbearia': forms.TextInput(attrs={'class': 'form-control'}),
+            'endereco': forms.TextInput(attrs={'class': 'form-control'}),
+            'cidade': forms.TextInput(attrs={'class': 'form-control'}),
             # O choices será setado no __init__ do formulário para garantir que o modelo já foi carregado.
-            'estado': forms.Select(attrs={'class': 'form-select'}), 
-            'cep': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00000-000'}),
+            'estado': forms.Select(attrs={'class': 'form-select'}),
+            'cep': forms.TextInput(attrs={'class': 'form-control'}),
         }
         # 'labels' são usados para definir o texto exibido ao lado de cada campo do formulário.
         labels = {
@@ -48,7 +48,7 @@ class BarbeariaForm(forms.ModelForm):
         if 'estado' in self.fields:
             # Obtém as escolhas do campo 'estado' diretamente do modelo 'Barbearia'.
             model_choices = list(Barbearia._meta.get_field('estado').choices or [])
-            
+
             # Adiciona uma opção padrão "Selecione" no início das escolhas, se ela ainda não existir.
             if not self.initial.get('estado') and ('', 'Selecione') not in model_choices:
                 self.fields['estado'].widget.choices = [('', 'Selecione')] + model_choices
@@ -67,11 +67,11 @@ class UsuarioForm(forms.ModelForm):
         # Incluímos os campos que o usuário preenche no formulário de cadastro.
         # 'aceite_termos' e 'receber_notificacoes' também são incluídos para serem validados.
         fields = ['nome_completo', 'email', 'telefone', 'aceite_termos', 'receber_notificacoes']
-        
+
         widgets = {
-            'nome_completo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu nome completo'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'seu.email@exemplo.com'}),
-            'telefone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(XX) XXXX-XXXX ou (XX) XXXXX-XXXX'}),
+            'nome_completo': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'telefone': forms.TextInput(attrs={'class': 'form-control'}),
             # Para checkboxes, usamos CheckboxInput e adicionamos a classe Bootstrap.
             'aceite_termos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'receber_notificacoes': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -90,12 +90,12 @@ class UsuarioForm(forms.ModelForm):
 # --- Formulário Django para o modelo Assinatura ---
 # (Embora não seja usado diretamente no fluxo de criação da assinatura via Stripe Checkout,
 # é útil ter para outras operações, como edição de assinaturas no Admin ou em outras views.)
-class AssinaturaForm(forms.ModelForm): 
+class AssinaturaForm(forms.ModelForm):
     """
     Formulário Django para o modelo Assinatura.
     Principalmente útil para gerenciamento em interfaces administrativas.
     """
-    class Meta: 
+    class Meta:
         model = Assinatura
         # Incluímos campos de relacionamento para que possam ser selecionados em formulários.
         fields = ['usuario', 'barbearia', 'plano']
